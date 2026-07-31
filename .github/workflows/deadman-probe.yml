@@ -44,5 +44,5 @@ jobs:
           if [ "$open" = "0" ]; then
             gh issue create --repo "$GITHUB_REPOSITORY" --label deadman \
               --title "DEAD-MAN: kubehz public plane unreachable" \
-              --body "External probe failed:${DEAD:-see run log}. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. The platform's in-cluster alerting shares fate with the cluster — treat this as a real outage until proven otherwise (DNS, LB, TLS cert, edge proxy)."
+              --body "External probe failed:${DEAD:-see run log}. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. The platform's in-cluster alerting shares fate with the cluster — treat this as a real outage until proven otherwise (DNS, LB, TLS cert, edge proxy). FIRST STEP from the operator workstation: \`lo use kubehz.in.net && lo recover --dry-run\` — a 15s read-only doctor + rebuild plan (talks only to the Hetzner APIs, works while the cluster is dead) that tells you the DR state and confidence BEFORE any decision. Full runbook: kubehz-cluster OPERATIONS.md §8."
           fi
