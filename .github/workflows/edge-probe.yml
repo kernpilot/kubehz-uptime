@@ -1,0 +1,27 @@
+# Ad-hoc external edge probe (2026-07-31): curl a set of platform hosts from a
+# GitHub runner (guaranteed NON-allowlisted source IP) and report the transport
+# outcome. Built to verify the L4 allowlist-drop on *.kubehz.in.net (operator
+# hosts must RESET the connection — curl exit 35/56 — while docker/hooks and the
+# whole public plane keep answering HTTP). Reusable for any future edge check.
+name: edge-probe
+on:
+  workflow_dispatch:
+    inputs:
+      hosts:
+        description: space-separated URLs to probe
+        default: "https://kkp.kubehz.in.net/ https://grafana.kubehz.in.net/ https://docker.kubehz.in.net/v2/ https://hooks.kubehz.in.net/ https://api.kubehz.cloud/ https://app.kubehz.cloud/"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe
+        run: |
+          for url in ${{ inputs.hosts }}; do
+            out=$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" 2>&1)
+            rc=$?
+            if [ $rc -eq 0 ]; then
+              echo "RESULT $url HTTP:$out"
+            else
+              echo "RESULT $url CURL-EXIT:$rc ($(echo "$out" | tail -1 | head -c 120))"
+            fi
+          done
