@@ -16,6 +16,7 @@ jobs:
     steps:
       - name: probe
         run: |
+          set +e
           for url in ${{ inputs.hosts }}; do
             out=$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" 2>&1)
             rc=$?
