@@ -1,0 +1,48 @@
+# Total-death dead-man: GitHub-hosted runners share no fate with the kubehz
+# platform. No credentials — public endpoints, public CAs; the only token is
+# the automatic GITHUB_TOKEN for the same-repo alert issue.
+name: deadman-probe
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe public plane
+        id: probe
+        run: |
+          set -u
+          dead=""
+          for host in api.kubehz.cloud app.kubehz.cloud auth.kubehz.cloud; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' \
+                     --connect-timeout 10 --max-time 25 "https://${host}/" 2>&1) \
+              || { dead="${dead} ${host}(no-response:${code})"; continue; }
+            case "$code" in
+              5??) dead="${dead} ${host}(HTTP ${code})" ;;
+              *)   echo "${host}: HTTP ${code} — path alive" ;;
+            esac
+          done
+          if [ -n "$dead" ]; then
+            echo "DEAD:${dead}"
+            echo "dead=${dead}" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+      - name: Raise dead-man issue (deduplicated)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEAD: ${{ steps.probe.outputs.dead }}
+        run: |
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --label deadman --state open --json number --jq 'length')
+          if [ "$open" = "0" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --label deadman \
+              --title "DEAD-MAN: kubehz public plane unreachable" \
+              --body "External probe failed:${DEAD:-see run log}. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. The platform's in-cluster alerting shares fate with the cluster — treat this as a real outage until proven otherwise (DNS, LB, TLS cert, edge proxy)."
+          fi
